@@ -22,6 +22,7 @@
 #include <langinfo.h>
 #include <stdarg.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <container/hashmap.h>
 
@@ -29,13 +30,12 @@
 
 #define LEAPYEAR(year) ((year) % 4 == 0 && ((year) % 100 != 0 || (year) % 400 == 0))
 
-
 logger_t root={
 	.name="root",
 	.fmt="[%Y-%m-%D %H:%M:%S] %L %n: %_\n",
 	.level=0,
 	.str_level=NULL,
-	.out=0};
+	.out=STDOUT_FILENO};
 
 static char *default_str_level[5]={"DBG", "INF", "WRN", "ERR", "FTL"};
 
@@ -283,14 +283,6 @@ void _log(logger_t *l, int level, char *format, ...)
 		putc(*fmt, l->out);
 		}
 	}
-size_t name_hash(void *str)
-	{
-	size_t h=0;
-	char *c=(char *)str;
-	while(*c!=0)
-		h=h<2+*c++;
-	return h;
-	}
 
 logger_t *get_logger(char *name)
 	{
@@ -298,7 +290,7 @@ logger_t *get_logger(char *name)
 	if(name==NULL)
 		return &root;
 	if(loggers==NULL)
-		loggers=hashmap_create(10, &name_hash);
+		loggers=hashmap_create(10, &hash_string);
 	l=(logger_t *)hashmap_get(loggers, name_hash(name));
 	if(l!=NULL)
 		return l;
