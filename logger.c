@@ -291,9 +291,9 @@ void _l(const char *n, int level, char *format, ...)
 	va_end(ap);
 	}
 
-void init_logger()
+void logger_init()
 	{
-	init_cfg();
+	cfg_init();
 	loggers=hashmap_create(10, &hash_string);
 	hashmap_add(loggers, &_default);
 	char *str=cfg_get_string("logger.default.format");
@@ -333,7 +333,7 @@ logger_t *get_logger(const char *name)
 		return &_default;
 	if(loggers==NULL)
 		{
-		error(NULL, "You should call 'init_logger()' first!");
+		error(NULL, "You should call 'logger_init()' first!");
 		return &_default;
 		}
 	l=(logger_t *)hashmap_get(loggers, hash_string((void *)name));

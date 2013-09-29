@@ -46,7 +46,7 @@ typedef struct logger
 void _l(const char *lname, int level, char *fmt, ...);
 
 /** initialize logger engine. */
-void init_logger()
+void logger_init();
 
 /** get or create a logger. if name==NULL you will get default logger */
 logger_t *get_logger(const char *name);
