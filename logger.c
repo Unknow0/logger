@@ -373,7 +373,7 @@ logger_t *get_logger(const char *name)
 		l->out=stdout;
 	else if(strcmp(out, "stderr")==0)
 		l->out=stderr;
-	else if(stdncmp(out, "file:", 5)==0)
+	else if(strncmp(out, "file:", 5)==0)
 		l->out=fopen(out+5, "a");
 	else if(out!=NULL)
 		error(NULL, "'i%s' should be 'stdout', 'stderr' or 'file:<path to file>'", key);
