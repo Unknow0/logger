@@ -24,52 +24,46 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <cfg.h>
 #include <container/hashmap.h>
 
 #include "logger.h"
 
 #define LEAPYEAR(year) ((year) % 4 == 0 && ((year) % 100 != 0 || (year) % 400 == 0))
 
-logger_t root={
-	.name="root",
-	.fmt="[%Y-%m-%D %H:%M:%S] %L %n: %_\n",
+#define _putc(l, c) putc(c, l->out==NULL?stdout:l->out)
+#define _puts(l, s) fputs(s, l->out==NULL?stdout:l->out)
+
+logger_t _default={
+	.name="_default",
+	.fmt="[%Y-%m-%d %H:%M:%S] %L %n: %_\n",
 	.level=0,
 	.str_level=NULL,
-	.out=STDOUT_FILENO};
+	.out=NULL};
 
-static char *default_str_level[5]={"DBG", "INF", "WRN", "ERR", "FTL"};
+static char *_default_str_level[5]={"DBG", "INF", "WRN", "ERR", "FTL"};
 
 hashmap_t *loggers;
 
-void _fmt(int nbr, int nb, int padding)
+void _fmt(logger_t *l, int nbr, int nb, int padding)
 	{
 	int i;
 	for(i=1; nb>1; i*=10, nb--);
 	while(nbr<i)
 		{
-		putc(padding, root.out);
+		_putc(l, padding);
 		i/=10;
 		}
 	while(i>0)
 		{
-		putc(nbr/i+'0', root.out);
+		_putc(l, nbr/i+'0');
 		nbr%=i;
 		i/=10;
 		}
 	}
 
-void _log(logger_t *l, int level, char *format, ...)
+void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char *format, va_list ap)
 	{
-	int i;
-	time_t ct;
-	struct tm t;
-	char *fmt=root.fmt;
-	if(l==NULL)
-		l=&root;
-	if(l->level<level)
-		return;
-	ct=time(NULL);
-	localtime_r(&ct, &t);
 	for(; *fmt; ++fmt)
 		{
 		if(*fmt=='%')
@@ -80,104 +74,106 @@ void _log(logger_t *l, int level, char *format, ...)
 					--fmt;
 					break;
 				case 'A':
-					if(t.tm_wday<0 || t.tm_wday>6)
-						putc('?', l->out);
+					if(t->tm_wday<0 || t->tm_wday>6)
+						_putc(l, '?');
 					else
-						fputs(nl_langinfo(DAY_1+t.tm_wday), l->out);
+						_puts(l, nl_langinfo(DAY_1+t->tm_wday));
 					continue;
 				case 'a':
-					if(t.tm_wday<0 || t.tm_wday>6)
-						putc('?', l->out);
+					if(t->tm_wday<0 || t->tm_wday>6)
+						_putc(l, '?');
 					else
-						fputs(nl_langinfo(ABDAY_1+t.tm_wday), l->out);
+						_puts(l, nl_langinfo(ABDAY_1+t->tm_wday));
 					continue;
 				case 'B':
-					if(t.tm_mon<0 || t.tm_mon>11)
-						putc('?', l->out);
+					if(t->tm_mon<0 || t->tm_mon>11)
+						_putc(l, '?');
 					else
-						fputs(nl_langinfo(MON_1+t.tm_mon), l->out);
+						_puts(l, nl_langinfo(MON_1+t->tm_mon));
 					continue;
 				case 'b':
 				case 'h':
-					if(t.tm_mon<0 || t.tm_mon>11)
-						putc('?', l->out);
+					if(t->tm_mon<0 || t->tm_mon>11)
+						_putc(l, '?');
 					else
-						fputs(nl_langinfo(ABMON_1+t.tm_mon), l->out);
+						_puts(l, nl_langinfo(ABMON_1+t->tm_mon));
 					continue;
 				case 'C':
-					i=t.tm_year+1900/100;
-					_fmt(i, 2, '0');
+					{
+					int i=t->tm_year+1900/100;
+					_fmt(l, i, 2, '0');
 					continue;
+					}
 				case 'c':
-					_log(l, level, "%a %b %e %H:%M:%S %Y");
+					_log_parse(l, level, "%a %b %e %H:%M:%S %Y", ct, t, format, ap);
 					continue;
 				case 'D':
-					_log(l, level, "%m/%d/%y");
+					_log_parse(l, level, "%m/%d/%y", ct, t, format, ap);
 					continue;
 				case 'd':
 				case 'e':
-					_fmt(t.tm_mday, 2, *fmt=='d'?'0':' ');
+					_fmt(l, t->tm_mday, 2, *fmt=='d'?'0':' ');
 					continue;
 				case 'F':
-					_log(l, level, "%Y-%m-%d");
+					_log_parse(l, level, "%Y-%m-%d", ct, t, format, ap);
 					continue;
 				case 'H':
 				case 'k':
-					_fmt(t.tm_hour, 2, *fmt=='H'?'0':' ');
+					_fmt(l, t->tm_hour, 2, *fmt=='H'?'0':' ');
 					continue;
 				case 'I':
 				case 'l':
-					_fmt(t.tm_hour % 12 ? t.tm_hour % 12 : 12, 2, *fmt=='I'?'0':' ');
+					_fmt(l, t->tm_hour % 12 ? t->tm_hour % 12 : 12, 2, *fmt=='I'?'0':' ');
 					continue;
 				case 'j':
-					_fmt(t.tm_yday+1, 3, '0');
+					_fmt(l, t->tm_yday+1, 3, '0');
 					continue;
 				case 'M':
-					_fmt(t.tm_min, 2, '0');
+					_fmt(l, t->tm_min, 2, '0');
 					continue;
 				case 'm':
-					_fmt(t.tm_mon+1, 2, '0');
+					_fmt(l, t->tm_mon+1, 2, '0');
 					continue;
 				case 'P':
 				case 'p':
-					if(t.tm_hour >= 12)
-						fputs(*fmt=='P'?"pm":"PM", l->out);
+					if(t->tm_hour >= 12)
+						_puts(l, *fmt=='P'?"pm":"PM");
 					else
-						fputs(*fmt=='P'?"am":"AM", l->out);
+						_puts(l, *fmt=='P'?"am":"AM");
 					continue;
 				case 'R':
-					_log(l, level, "%H:%M");
+					_log_parse(l, level, "%H:%M", ct, t, format, ap);
 					continue;
 				case 'r':
-					_log(l, level, "%I:%M:%S %p");
+					_log_parse(l, level, "%I:%M:%S %p", ct, t, format, ap);
 					continue;
 				case 'S':
-					_fmt(t.tm_sec, 2, '0');
+					_fmt(l, t->tm_sec, 2, '0');
 					continue;
 				case 's':
 					{
-					time_t mkt=mktime(&t);
+					time_t mkt=mktime(t);
 					unsigned long int i;
 					for(i=1; i*10<mkt; i*=10);
 					while(mkt>0)
 						{
-						putc(mkt/i+'0', l->out);
+						_putc(l, mkt/i+'0');
 						mkt/=10;
 						i/=10;
 						}
 					continue;
 					}
 				case 'T':
-					_log(l, level, "%H:%M:%S");
+					_log_parse(l, level, "%H:%M:%S", ct, t, format, ap);
 					continue;
 				case 't':
-					putc('\t', l->out);
+					_putc(l, '\t');
 					continue;
 				case 'U':
-					_fmt((t.tm_yday + 7 - t.tm_wday) / 7, 2, '0');
+					_fmt(l, (t->tm_yday + 7 - t->tm_wday) / 7, 2, '0');
 					continue;
 				case 'u':
-					_fmt(t.tm_wday == 0 ? 7 : t.tm_wday, 1, ' ');
+					_fmt(l, t->tm_wday == 0 ? 7 : t->tm_wday, 1, ' ');
 					continue;
 				case 'V':   // ISO 8601 week number
 				case 'G':   // ISO 8601 year (four digits)
@@ -187,9 +183,9 @@ void _log(logger_t *l, int level, char *format, ...)
 					int	wday;
 					int	w;
 
-					year = t.tm_year + 1900;
-					yday = t.tm_yday;
-					wday = t.tm_wday;
+					year = t->tm_year + 1900;
+					yday = t->tm_yday;
+					wday = t->tm_wday;
 					while (1)
 						{
 						int	len;
@@ -216,86 +212,169 @@ void _log(logger_t *l, int level, char *format, ...)
 						yday += LEAPYEAR(year) ? 366 : 365;
 						}
 					if (*fmt == 'V')
-						_fmt(w, 2, '0');
+						_fmt(l, w, 2, '0');
 					else if (*fmt == 'g')
-						_fmt(year % 100, 2, '0');
+						_fmt(l, year % 100, 2, '0');
 					else
-						_fmt(year, 4, '0');
+						_fmt(l, year, 4, '0');
 					continue;
 					}
 				case 'v':
-					_log(l, level, "%e-%b-%Y");
+					_log_parse(l, level, "%e-%b-%Y", ct, t, format, ap);
 					continue;
 				case 'W':
-					_fmt((t.tm_yday + 7 - (t.tm_wday ? (t.tm_wday - 1) : 6)) / 7, 2, '0');
+					_fmt(l, (t->tm_yday + 7 - (t->tm_wday ? (t->tm_wday - 1) : 6)) / 7, 2, '0');
 					continue;
 				case 'w':
-					_fmt(t.tm_wday, 1, '0');
+					_fmt(l, t->tm_wday, 1, '0');
 					continue;
 				case 'X':
-					_log(l, level, "%H:%M:%S");
+					_log_parse(l, level, "%H:%M:%S", ct, t, format, ap);
 					continue;
 				case 'x':
-					_log(l, level, "%m/%d/%y");
+					_log_parse(l, level, "%m/%d/%y", ct, t, format, ap);
 					continue;
 				case 'y':
-					_fmt((t.tm_year+1900) % 100, 2, '0');
+					_fmt(l, (t->tm_year+1900) % 100, 2, '0');
 					continue;
 				case 'Y':
-					_fmt(t.tm_year+1900, 4, '0');
+					_fmt(l, t->tm_year+1900, 4, '0');
 					continue;
 				case 'z':
 					{
-					int diff=t.tm_gmtoff;
+					int diff=t->tm_gmtoff;
 					if(diff<0)
 						{
 						diff=-diff;
-						putc('-', l->out);
+						_putc(l, '-');
 						}
 					else 
-						putc('+', l->out);
-					_fmt(diff/3600, 2, '0');
-					_fmt((diff%3600)/60, 2, '0');
+						_putc(l, '+');
+					_fmt(l, diff/3600, 2, '0');
+					_fmt(l, (diff%3600)/60, 2, '0');
 					continue;
 					}
 				case '+':
-					_log(l, level, "%a, %d %b %Y %H:%M:%S %z");
+					_log_parse(l, level, "%a, %d %b %Y %H:%M:%S %z", ct, t, format, ap);
 					continue;
 				case '_':
-					{
-					va_list ap;
-					va_start(ap, format);
 					vprintf(format, ap);
-					va_end(ap);
 					continue;
-					}
 				case 'L':
-					fputs(l->str_level==NULL?default_str_level[level]:l->str_level[level], l->out);
+					_puts(l, l->str_level==NULL?_default_str_level[level]:l->str_level[level]);
 					continue;
 				case 'n':
-					fputs(l->name, l->out);
+					_puts(l, l->name);
 					continue;
 				case '%':
 				default:
 					break;
 				}
 			}
-		putc(*fmt, l->out);
+		_putc(l, *fmt);
 		}
 	}
 
-logger_t *get_logger(char *name)
+void _l(const char *n, int level, char *format, ...)
+	{
+	int i;
+	time_t ct;
+	struct tm t;
+	logger_t *l=get_logger(n);
+	if(l->level<level)
+		return;
+	ct=time(NULL);
+	localtime_r(&ct, &t);
+	va_list ap;
+	va_start(ap, format);
+	_log_parse(l, level, l->fmt, ct, &t, format, ap);
+	va_end(ap);
+	}
+
+void init_logger()
+	{
+	init_cfg();
+	loggers=hashmap_create(10, &hash_string);
+	hashmap_add(loggers, &_default);
+	char *str=cfg_get_string("logger.default.format");
+	if(str!=NULL)
+		_default.fmt=str;
+	if(cfg_has_key("logger.default.level"))
+		_default.level=cfg_get_int("logger.default.level");
+	if(cfg_has_key("logger._default.str_level"))
+		{
+		json_object *a=cfg_get("logger.default.str_level");
+		if(json_object_get_type(a)==json_type_array && json_object_array_length(a)<6)
+			{
+			int i;
+			for(i=0; i<5; i++)
+				_default.str_level[i]=json_object_get_string(json_object_array_get_idx(a, i));
+			}
+		else
+			error(NULL, "'logger.default.str_string' should be an array of 5 string");
+		}
+	char *out=cfg_get_string("logger.default.out");
+	if(strcmp(out, "stdout")==0)
+		_default.out=stdout;
+	else if(strcmp(out, "stderr")==0)
+		_default.out=stderr;
+	else if(stdncmp(out, "file:", 5)==0)
+		_default.out=fopen(out+5, "a");
+	else
+		error(NULL, "'logger.default.out' should be 'stdout', 'stderr' or 'file:<path to file>'");
+	}
+
+logger_t *get_logger(const char *name)
 	{
 	logger_t *l;
+	char *key;
+	int s;
 	if(name==NULL)
-		return &root;
+		return &_default;
 	if(loggers==NULL)
-		loggers=hashmap_create(10, &hash_string);
-	l=(logger_t *)hashmap_get(loggers, name_hash(name));
+		{
+		error(NULL, "You should call 'init_logger()' first!");
+		return &_default;
+		}
+	l=(logger_t *)hashmap_get(loggers, hash_string((void *)name));
 	if(l!=NULL)
 		return l;
 	l=malloc(sizeof(logger_t));
 	l->name=strdup(name);
-	l->fmt=NULL; // TODO: get from cfg
 	hashmap_add(loggers, l);
+	s=strlen(name);
+	key=malloc(s+18);
+	strcpy(key, "logger.");
+	strcat(key, name);
+	strcat(key, "format");
+	l->fmt=cfg_get_string(key);
+	key[s+7]=0;
+	strcat(key, "level");
+	if(cfg_has_key(key))
+		l->level=cfg_get_int(key);
+	key[s+7]=0;
+	strcat(key, "str_level");
+	if(cfg_has_key(key))
+		{
+		json_object *a=cfg_get(key);
+		if(json_object_get_type(a)==json_type_array && json_object_array_length(a)<6)
+			{
+			int i;
+			for(i=0; i<5; i++)
+				l->str_level[i]=json_object_get_string(json_object_array_get_idx(a, i));
+			}
+		else
+			error(NULL, "'%s' should be an array of 5 string", key);
+		}
+	key[s+7]=0;
+	strcat(key, "out");
+	char *out=cfg_get_string("key");
+	if(strcmp(out, "stdout")==0)
+		l->out=stdout;
+	else if(strcmp(out, "stderr")==0)
+		l->out=stderr;
+	else if(stdncmp(out, "file:", 5)==0)
+		l->out=fopen(out+5, "a");
+	else if(out!=NULL)
+		error(NULL, "'i%s' should be 'stdout', 'stderr' or 'file:<path to file>'", key);
 	}

@@ -27,25 +27,28 @@
 #define LOG_LEVEL_FTL 4
 #define LOG_LEVEL_OFF 5
 
-#define log_debug(l, ...)	log(l, LOG_LEVEL_DBG, __VA_ARGS__)
-#define log_info(l, ...)	log(l, LOG_LEVEL_INF, __VA_ARGS__)
-#define log_warn(l, ...)	log(l, LOG_LEVEL_WRN, __VA_ARGS__)
-#define log_error(l, ...)	log(l, LOG_LEVEL_ERR, __VA_ARGS__)
-#define log_fatal(l, ...)	log(l, LOG_LEVEL_FTL, __VA_ARGS__)
+#define debug(l, ...)	_l(l, LOG_LEVEL_DBG, __VA_ARGS__)
+#define info(l, ...)	_l(l, LOG_LEVEL_INF, __VA_ARGS__)
+#define warn(l, ...)	_l(l, LOG_LEVEL_WRN, __VA_ARGS__)
+#define error(l, ...)	_l(l, LOG_LEVEL_ERR, __VA_ARGS__)
+#define fatal(l, ...)	_l(l, LOG_LEVEL_FTL, __VA_ARGS__)
 
 typedef struct logger
 	{
 	char *name;
 	char *fmt;
 	int level;
-	char **str_level;
+	const char *str_level[5];
 	FILE *out;
 	} logger_t;
 
-/** log something with the logger "name" or root if this logger doesn't exist. */
-void _log(logger_t *logger, int level, char *fmt, ...);
+/** log to the logger lname. */
+void _l(const char *lname, int level, char *fmt, ...);
 
-/** get or create a logger. if name==NULL you will get root logger */
-logger_t *get_logger(char *name);
+/** initialize logger engine. */
+void init_logger()
+
+/** get or create a logger. if name==NULL you will get default logger */
+logger_t *get_logger(const char *name);
 
 #endif

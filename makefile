@@ -13,6 +13,7 @@ all: build
 build: $(PROG).a $(PROG).so
 
 $(PROG).a: $(OBJECTS)
+	rm -f $(PROG).a
 	ar rcs $(PROG).a $^
 $(PROG).so: $(OBJECTS)
 	$(CC) $(LDFLAGS) -o $(PROG).so $^
@@ -23,12 +24,13 @@ $(PROG).so: $(OBJECTS)
 .PHONY: clean install uninstall
 
 clean:
-	rm $(OBJECTS)
+	rm -f $(OBJECTS)
+	rm -f $(PROG)*
 
 install: build
 	cp $(PROG)* $(PREFIX)/lib/
 	cp $(INCLUDE) $(PREFIX)/include/
 
 uninstall:
-	rm $(PREFIX)/lib/$(PROG)*
-	rm -r $(PREFIX)/include/$(INCLUDE)
+	rm -f $(PREFIX)/lib/$(PROG)*
+	rm -rf $(PREFIX)/include/$(INCLUDE)
