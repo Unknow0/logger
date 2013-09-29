@@ -20,6 +20,10 @@
 
 #include <stdio.h>
 
+#define DEFAULT_LEVEL 0
+#define DEFAULT_FMT "[%Y-%m-%d %H:%M:%S] %L %n: %_\n"
+#define DEFAULT_OUT stdout
+
 #define LOG_LEVEL_DBG 0
 #define LOG_LEVEL_INF 1
 #define LOG_LEVEL_WRN 2

@@ -23,6 +23,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <cfg.h>
 #include <container/hashmap.h>
@@ -31,19 +32,32 @@
 
 #define LEAPYEAR(year) ((year) % 4 == 0 && ((year) % 100 != 0 || (year) % 400 == 0))
 
-#define _putc(l, c) putc(c, l->out==NULL?stdout:l->out)
-#define _puts(l, s) fputs(s, l->out==NULL?stdout:l->out)
+#define _putc(l, c) putc(c, l->out==NULL?DEFAULT_OUT:l->out)
+#define _puts(l, s) fputs(s, l->out==NULL?DEFAULT_OUT:l->out)
 
 logger_t _default={
-	.name="_default",
-	.fmt="[%Y-%m-%d %H:%M:%S] %L %n: %_\n",
-	.level=0,
-	.str_level=NULL,
+	.name="default",
+	.fmt=DEFAULT_FMT,
+	.level=DEFAULT_LEVEL,
+	.str_level[0]=NULL,
+	.str_level[1]=NULL,
+	.str_level[2]=NULL,
+	.str_level[3]=NULL,
+	.str_level[4]=NULL,
 	.out=NULL};
 
 static char *_default_str_level[5]={"DBG", "INF", "WRN", "ERR", "FTL"};
 
 hashmap_t *loggers;
+
+size_t hash_string(void *e)
+	{
+	size_t h=0;
+	char *c=*((char **)e);
+	while(*c!=0)
+		h=(h<<2)+*c++;
+	return h;
+	}
 
 void _fmt(logger_t *l, int nbr, int nb, int padding)
 	{
@@ -258,10 +272,10 @@ void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char
 					_log_parse(l, level, "%a, %d %b %Y %H:%M:%S %z", ct, t, format, ap);
 					continue;
 				case '_':
-					vprintf(format, ap);
+					vfprintf(l->out==NULL?DEFAULT_OUT:l->out, format, ap);
 					continue;
 				case 'L':
-					_puts(l, l->str_level==NULL?_default_str_level[level]:l->str_level[level]);
+					_puts(l, l->str_level[level]==NULL?_default_str_level[level]:l->str_level[level]);
 					continue;
 				case 'n':
 					_puts(l, l->name);
@@ -281,14 +295,15 @@ void _l(const char *n, int level, char *format, ...)
 	time_t ct;
 	struct tm t;
 	logger_t *l=get_logger(n);
-	if(l->level<level)
+	if(l->level>level)
 		return;
 	ct=time(NULL);
 	localtime_r(&ct, &t);
 	va_list ap;
 	va_start(ap, format);
-	_log_parse(l, level, l->fmt, ct, &t, format, ap);
+	_log_parse(l, level, l->fmt==NULL?DEFAULT_FMT:l->fmt, ct, &t, format, ap);
 	va_end(ap);
+	fflush(l->out==NULL?DEFAULT_OUT:l->out);
 	}
 
 void logger_init()
@@ -314,14 +329,17 @@ void logger_init()
 			error(NULL, "'logger.default.str_string' should be an array of 5 string");
 		}
 	char *out=cfg_get_string("logger.default.out");
-	if(strcmp(out, "stdout")==0)
-		_default.out=stdout;
-	else if(strcmp(out, "stderr")==0)
-		_default.out=stderr;
-	else if(strncmp(out, "file:", 5)==0)
-		_default.out=fopen(out+5, "a");
-	else
-		error(NULL, "'logger.default.out' should be 'stdout', 'stderr' or 'file:<path to file>'");
+	if(out!=NULL)
+		{
+		if(strcmp(out, "stdout")==0)
+			_default.out=stdout;
+		else if(strcmp(out, "stderr")==0)
+			_default.out=stderr;
+		else if(strncmp(out, "file:", 5)==0)
+			_default.out=fopen(out+5, "a");
+		else
+			error(NULL, "'logger.default.out' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", out);
+		}
 	}
 
 logger_t *get_logger(const char *name)
@@ -336,7 +354,7 @@ logger_t *get_logger(const char *name)
 		error(NULL, "You should call 'logger_init()' first!");
 		return &_default;
 		}
-	l=(logger_t *)hashmap_get(loggers, hash_string((void *)name));
+	l=(logger_t *)hashmap_get(loggers, hash_string((void *)&name));
 	if(l!=NULL)
 		return l;
 	l=malloc(sizeof(logger_t));
@@ -346,14 +364,16 @@ logger_t *get_logger(const char *name)
 	key=malloc(s+18);
 	strcpy(key, "logger.");
 	strcat(key, name);
-	strcat(key, "format");
+	strcat(key, ".format");
 	l->fmt=cfg_get_string(key);
-	key[s+7]=0;
+	key[s+8]=0;
 	strcat(key, "level");
+	l->level=DEFAULT_LEVEL;
 	if(cfg_has_key(key))
 		l->level=cfg_get_int(key);
-	key[s+7]=0;
+	key[s+8]=0;
 	strcat(key, "str_level");
+	memset(l->str_level, 0, sizeof(char*)*5);
 	if(cfg_has_key(key))
 		{
 		json_object *a=cfg_get(key);
@@ -366,15 +386,21 @@ logger_t *get_logger(const char *name)
 		else
 			error(NULL, "'%s' should be an array of 5 string", key);
 		}
-	key[s+7]=0;
+	key[s+8]=0;
 	strcat(key, "out");
-	char *out=cfg_get_string("key");
-	if(strcmp(out, "stdout")==0)
-		l->out=stdout;
-	else if(strcmp(out, "stderr")==0)
-		l->out=stderr;
-	else if(strncmp(out, "file:", 5)==0)
-		l->out=fopen(out+5, "a");
-	else if(out!=NULL)
-		error(NULL, "'i%s' should be 'stdout', 'stderr' or 'file:<path to file>'", key);
+	char *out=cfg_get_string(key);
+	l->out=DEFAULT_OUT;
+	if(out!=NULL)
+		{
+		if(strcmp(out, "stdout")==0)
+			l->out=stdout;
+		else if(strcmp(out, "stderr")==0)
+			l->out=stderr;
+		else if(strncmp(out, "file:", 5)==0)
+			l->out=fopen(out+5, "a");
+		else
+			error(NULL, "'%s' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", key, out);
+		}
+
+	return l;
 	}
