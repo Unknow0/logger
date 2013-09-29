@@ -318,7 +318,7 @@ void logger_init()
 		_default.out=stdout;
 	else if(strcmp(out, "stderr")==0)
 		_default.out=stderr;
-	else if(stdncmp(out, "file:", 5)==0)
+	else if(strncmp(out, "file:", 5)==0)
 		_default.out=fopen(out+5, "a");
 	else
 		error(NULL, "'logger.default.out' should be 'stdout', 'stderr' or 'file:<path to file>'");
