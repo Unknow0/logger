@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include <cfg.h>
 #include <container/hashmap.h>
@@ -49,6 +50,7 @@ logger_t _default={
 static char *_default_str_level[5]={"DBG", "INF", "WRN", "ERR", "FTL"};
 
 hashmap_t *loggers;
+pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 
 size_t hash_string(void *e)
 	{
@@ -119,7 +121,7 @@ void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char
 					continue;
 					}
 				case 'c':
-					_log_parse(l, level, "%a %b %e %H:%M:%S %Y", ct, t, format, ap);
+					_log_parse(l, level, nl_langinfo(D_T_FMT), ct, t, format, ap);
 					continue;
 				case 'D':
 					_log_parse(l, level, "%m/%d/%y", ct, t, format, ap);
@@ -243,10 +245,10 @@ void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char
 					_fmt(l, t->tm_wday, 1, '0');
 					continue;
 				case 'X':
-					_log_parse(l, level, "%H:%M:%S", ct, t, format, ap);
+					_log_parse(l, level, nl_langinfo(T_FMT), ct, t, format, ap);
 					continue;
 				case 'x':
-					_log_parse(l, level, "%m/%d/%y", ct, t, format, ap);
+					_log_parse(l, level, nl_langinfo(D_FMT), ct, t, format, ap);
 					continue;
 				case 'y':
 					_fmt(l, (t->tm_year+1900) % 100, 2, '0');
@@ -268,6 +270,9 @@ void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char
 					_fmt(l, (diff%3600)/60, 2, '0');
 					continue;
 					}
+				case 'Z':
+					_puts(l, tzname[t->tm_isdst>0?1:0]);
+					continue;
 				case '+':
 					_log_parse(l, level, "%a, %d %b %Y %H:%M:%S %z", ct, t, format, ap);
 					continue;
@@ -289,12 +294,13 @@ void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char
 		}
 	}
 
-void _l(const char *n, int level, char *format, ...)
+void _l(logger_t *l, int level, char *format, ...)
 	{
 	int i;
 	time_t ct;
 	struct tm t;
-	logger_t *l=get_logger(n);
+	if(l==NULL)
+		l=&_default;
 	if(l->level>level)
 		return;
 	ct=time(NULL);
@@ -309,7 +315,7 @@ void _l(const char *n, int level, char *format, ...)
 void logger_init()
 	{
 	cfg_init();
-	loggers=hashmap_create(10, &hash_string);
+	loggers=hashmap_create(16, 0.66, &hash_string);
 	hashmap_add(loggers, &_default);
 	char *str=cfg_get_string("logger.default.format");
 	if(str!=NULL)
@@ -354,12 +360,19 @@ logger_t *get_logger(const char *name)
 		error(NULL, "You should call 'logger_init()' first!");
 		return &_default;
 		}
+	pthread_mutex_lock(&mutex);
 	l=(logger_t *)hashmap_get(loggers, hash_string((void *)&name));
 	if(l!=NULL)
+		{
+		pthread_mutex_unlock(&mutex);
+		size_t h1=hash_string(&name), h2=hash_string(&l->name);
+		_l(&_default, 0, "From cache %s->%s\n\t%x->%d\n\t%x->%d", name, l->name, h1, h1%loggers->map_size, h2, h2%loggers->map_size);
 		return l;
+		}
 	l=malloc(sizeof(logger_t));
 	l->name=strdup(name);
 	hashmap_add(loggers, l);
+	pthread_mutex_unlock(&mutex);
 	s=strlen(name);
 	key=malloc(s+18);
 	strcpy(key, "logger.");

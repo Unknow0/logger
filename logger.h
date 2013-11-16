@@ -21,7 +21,7 @@
 #include <stdio.h>
 
 #define DEFAULT_LEVEL 0
-#define DEFAULT_FMT "[%Y-%m-%d %H:%M:%S] %L %n: %_\n"
+#define DEFAULT_FMT "[%c] %L %n: %_\n"
 #define DEFAULT_OUT stdout
 
 #define LOG_LEVEL_DBG 0
@@ -47,7 +47,7 @@ typedef struct logger
 	} logger_t;
 
 /** log to the logger lname. */
-void _l(const char *lname, int level, char *fmt, ...);
+void _l(logger_t *l, int level, char *fmt, ...);
 
 /** initialize logger engine. */
 void logger_init();

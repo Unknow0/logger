@@ -1,14 +1,14 @@
 PROG=liblogger
 CC=gcc
 CFLAGS=-g
-LDFLAGS=-shared
+LDFLAGS=-lcfg -lcontainer -ljson
 PREFIX=/usr/local
 
-SRC=$(wildcard *.c)
+SRC=$(filter-out main.c, $(wildcard *.c))
 OBJECTS=$(SRC:.c=.o)
 INCLUDE=$(wildcard *.h)
 
-all: build
+all: build test
 
 build: $(PROG).a $(PROG).so
 
@@ -16,7 +16,10 @@ $(PROG).a: $(OBJECTS)
 	rm -f $(PROG).a
 	ar rcs $(PROG).a $^
 $(PROG).so: $(OBJECTS)
-	$(CC) $(LDFLAGS) -o $(PROG).so $^
+	$(CC) $(LDFLAGS) -shared -o $(PROG).so $^
+
+test: main.c $(PROG).a
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o test
 
 %.o:%.c
 	$(CC) $(CFLAGS) -o $@ -c $^
@@ -24,7 +27,8 @@ $(PROG).so: $(OBJECTS)
 .PHONY: clean install uninstall
 
 clean:
-	rm -f $(OBJECTS)
+	rm -f *.o
+	rm -f test
 	rm -f $(PROG)*
 
 install: build
