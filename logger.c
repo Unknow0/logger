@@ -294,20 +294,24 @@ void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char
 		}
 	}
 
-void _l(logger_t *l, int level, char *format, ...)
+void _l(logger_t *lorg, int level, char *format, ...)
 	{
 	int i;
 	time_t ct;
 	struct tm t;
+	char *fmt;
+	logger_t *l=lorg;
 	if(l==NULL)
 		l=&_default;
 	if(l->level>level)
 		return;
+	while(l->fmt==NULL && l->parent!=NULL)
+		l=l->parent;
 	ct=time(NULL);
 	localtime_r(&ct, &t);
 	va_list ap;
 	va_start(ap, format);
-	_log_parse(l, level, l->fmt==NULL?DEFAULT_FMT:l->fmt, ct, &t, format, ap);
+	_log_parse(lorg, level, l->fmt==NULL?DEFAULT_FMT:l->fmt, ct, &t, format, ap);
 	va_end(ap);
 	fflush(l->out==NULL?DEFAULT_OUT:l->out);
 	}
@@ -315,7 +319,7 @@ void _l(logger_t *l, int level, char *format, ...)
 void logger_init()
 	{
 	cfg_init();
-	loggers=hashmap_create(16, 0.66, &hash_string);
+	loggers=hashmap_create(4, 0.66, &hash_string);
 	hashmap_add(loggers, &_default);
 	char *str=cfg_get_string("logger.default.format");
 	if(str!=NULL)
@@ -346,6 +350,7 @@ void logger_init()
 		else
 			error(NULL, "'logger.default.out' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", out);
 		}
+	_default->parent=NULL;
 	}
 
 logger_t *get_logger(const char *name)
