@@ -33,8 +33,8 @@
 
 #define LEAPYEAR(year) ((year) % 4 == 0 && ((year) % 100 != 0 || (year) % 400 == 0))
 
-#define _putc(l, c) putc(c, l->out==NULL?DEFAULT_OUT:l->out)
-#define _puts(l, s) fputs(s, l->out==NULL?DEFAULT_OUT:l->out)
+#define _putc(l, c) putc(c, logger_out(l))
+#define _puts(l, s) fputs(s, logger_out(l))
 
 logger_t _default={
 	.name="default",
@@ -293,6 +293,19 @@ void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char
 		_putc(l, *fmt);
 		}
 	}
+int logger_level(logger_t *l)
+	{
+	while(l->level==LOG_LEVEL_INH && l->parent!=NULL)
+		l=l->parent;
+	return l->level==LOG_LEVEL_INH?DEFAULT_LEVEL:l->level;
+	}
+
+FILE *logger_out(logger_t *l)
+	{
+	while(l->out==NULL && l->parent!=NULL)
+		l=l->parent;
+	return l->level==NULL?DEFAULT_OUT:l->out;
+	}
 
 void _l(logger_t *lorg, int level, char *format, ...)
 	{
@@ -303,7 +316,7 @@ void _l(logger_t *lorg, int level, char *format, ...)
 	logger_t *l=lorg;
 	if(l==NULL)
 		l=&_default;
-	if(l->level>level)
+	if(logger_level(l)>level)
 		return;
 	while(l->fmt==NULL && l->parent!=NULL)
 		l=l->parent;
@@ -350,7 +363,7 @@ void logger_init()
 		else
 			error(NULL, "'logger.default.out' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", out);
 		}
-	_default->parent=NULL;
+	_default.parent=NULL;
 	}
 
 logger_t *get_logger(const char *name)
@@ -386,7 +399,7 @@ logger_t *get_logger(const char *name)
 	l->fmt=cfg_get_string(key);
 	key[s+8]=0;
 	strcat(key, "level");
-	l->level=DEFAULT_LEVEL;
+	l->level=LOG_LEVEL_INH;
 	if(cfg_has_key(key))
 		l->level=cfg_get_int(key);
 	key[s+8]=0;
@@ -419,6 +432,9 @@ logger_t *get_logger(const char *name)
 		else
 			error(NULL, "'%s' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", key, out);
 		}
+
+	// TODO: load parrent logger
+	l->parent=&_default;
 
 	return l;
 	}

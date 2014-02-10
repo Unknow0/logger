@@ -24,6 +24,7 @@
 #define DEFAULT_FMT "[%c] %L %n: %_\n"
 #define DEFAULT_OUT stdout
 
+#define LOG_LEVEL_INH -1
 #define LOG_LEVEL_DBG 0
 #define LOG_LEVEL_INF 1
 #define LOG_LEVEL_WRN 2
@@ -37,9 +38,11 @@
 #define error(l, ...)	_l(l, LOG_LEVEL_ERR, __VA_ARGS__)
 #define fatal(l, ...)	_l(l, LOG_LEVEL_FTL, __VA_ARGS__)
 
+
 typedef struct logger
 	{
 	char *name;
+	struct logger *parent;
 	char *fmt;
 	int level;
 	const char *str_level[5];
@@ -54,5 +57,11 @@ void logger_init();
 
 /** get or create a logger. if name==NULL you will get default logger */
 logger_t *get_logger(const char *name);
+
+/** return the efective level of a logger. */
+int logger_level(logger_t *l);
+
+/** return the effective output for a logger. */
+FILE *logger_out(logger_t *l);
 
 #endif
