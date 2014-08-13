@@ -277,7 +277,7 @@ void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char
 					_log_parse(l, level, "%a, %d %b %Y %H:%M:%S %z", ct, t, format, ap);
 					continue;
 				case '_':
-					vfprintf(l->out==NULL?DEFAULT_OUT:l->out, format, ap);
+					vfprintf(logger_out(l), format, ap);
 					continue;
 				case 'L':
 					_puts(l, l->str_level[level]==NULL?_default_str_level[level]:l->str_level[level]);
@@ -304,7 +304,7 @@ FILE *logger_out(logger_t *l)
 	{
 	while(l->out==NULL && l->parent!=NULL)
 		l=l->parent;
-	return l->level==NULL?DEFAULT_OUT:l->out;
+	return l->out==NULL?DEFAULT_OUT:l->out;
 	}
 
 void _l(logger_t *lorg, int level, char *format, ...)
@@ -326,7 +326,7 @@ void _l(logger_t *lorg, int level, char *format, ...)
 	va_start(ap, format);
 	_log_parse(lorg, level, l->fmt==NULL?DEFAULT_FMT:l->fmt, ct, &t, format, ap);
 	va_end(ap);
-	fflush(l->out==NULL?DEFAULT_OUT:l->out);
+	fflush(logger_out(l));
 	}
 
 void logger_init()
@@ -384,7 +384,6 @@ logger_t *get_logger(const char *name)
 		{
 		pthread_mutex_unlock(&mutex);
 		size_t h1=hash_string(&name), h2=hash_string(&l->name);
-		_l(&_default, 0, "From cache %s->%s\n\t%x->%d\n\t%x->%d", name, l->name, h1, h1%loggers->map_size, h2, h2%loggers->map_size);
 		return l;
 		}
 	l=malloc(sizeof(logger_t));
@@ -420,7 +419,7 @@ logger_t *get_logger(const char *name)
 	key[s+8]=0;
 	strcat(key, "out");
 	char *out=cfg_get_string(key);
-	l->out=DEFAULT_OUT;
+	l->out=NULL;
 	if(out!=NULL)
 		{
 		if(strcmp(out, "stdout")==0)
@@ -430,11 +429,20 @@ logger_t *get_logger(const char *name)
 		else if(strncmp(out, "file:", 5)==0)
 			l->out=fopen(out+5, "a");
 		else
-			error(NULL, "'%s' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", key, out);
+			error(&_default, "'%s' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", key, out);
 		}
 
-	// TODO: load parrent logger
 	l->parent=&_default;
+	for(;s>1;s--)
+		{
+		if(l->name[s]=='.')
+			{
+			l->name[s]=0;
+			l->parent=get_logger(l->name);
+			l->name[s]='.';
+			break;
+			}
+		}
 
 	return l;
 	}
