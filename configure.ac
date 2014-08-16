@@ -13,9 +13,15 @@ AC_PROG_CC
 AC_PROG_INSTALL
 
 # Checks for libraries.
-AC_CHECK_LIB([cfg], [cfg_init])
-AC_CHECK_LIB([container], [chunked_list_create])
-AC_CHECK_LIB([json-c], [json_object_new_object])
+AC_CHECK_LIB([cfg], [cfg_init], [], [
+	AC_MSG_ERROR([install libcfg: https://github.com/Unknow0/libcfg/])
+	])
+AC_CHECK_LIB([container], [chunked_list_create], [], [
+	AC_MSG_ERROR([install container: https://github.com/Unknow0/libcontainer/])
+	])
+AC_CHECK_LIB([json-c], [json_object_new_object], [], [
+	AC_MSG_ERROR([install json-c: https://github.com/json-c/json-c])
+	)
 
 # Checks for header files.
 AC_CHECK_HEADERS([langinfo.h stdlib.h string.h unistd.h])
