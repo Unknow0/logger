@@ -26,7 +26,7 @@ int main()
 	_l(l, 0, "Test");
 
 	l=get_logger("mserver.lib");
-	_l(l, 0, "test");
+	_l(l, 3, "test");
 
 	return 0;
 	}
