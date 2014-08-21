@@ -21,7 +21,7 @@ AC_CHECK_LIB([container], [chunked_list_create], [], [
 	])
 AC_CHECK_LIB([json-c], [json_object_new_object], [], [
 	AC_MSG_ERROR([install json-c: https://github.com/json-c/json-c])
-	)
+	])
 
 # Checks for header files.
 AC_CHECK_HEADERS([langinfo.h stdlib.h string.h unistd.h])
