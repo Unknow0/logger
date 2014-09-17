@@ -4,6 +4,12 @@ logger
 c logger library  
 it use the libcfg to get logger configuration.
 
+## Install
+	autoreconf -is
+	./configure
+	make
+	make install
+
 ### Logger cfg key
 <table>
     <tr><td>logger.&lt;name>.format</td><td>a format string used to render record (see below)</td></tr>
@@ -63,6 +69,3 @@ these format are mostly compliant to strftime
     <tr><td>%%</td><td>% char</td></tr>
 </table>
 
-
-### TODO
-hierachical logger

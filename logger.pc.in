@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: logger
 Description: Logging library
 Version: @VERSION@
-Requires: json-c container cfg
+Requires: json-c container libcfg
 Libs: -L${libdir} -llogger
 Cflags: -I${includedir}
