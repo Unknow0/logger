@@ -443,6 +443,7 @@ logger_t *get_logger(const char *name)
 			break;
 			}
 		}
+	free(key);
 
 	return l;
 	}
