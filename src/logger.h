@@ -41,15 +41,15 @@
 
 typedef struct logger
 	{
-	char *name;
+	const char *name;
 	struct logger *parent;
-	char *fmt;
+	const char *fmt;
 	int level;
 	const char *str_level[5];
 	FILE *out;
 	} logger_t;
 
-/** log to the logger lname. */
+/** log to the logger l. */
 void _l(logger_t *l, int level, char *fmt, ...);
 
 /** initialize logger engine. */
@@ -63,5 +63,8 @@ int logger_level(logger_t *l);
 
 /** return the effective output for a logger. */
 FILE *logger_out(logger_t *l);
+
+/** clean and destoy */
+void logger_deinit();
 
 #endif

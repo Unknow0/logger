@@ -49,8 +49,8 @@ logger_t _default={
 
 static char *_default_str_level[5]={"DBG", "INF", "WRN", "ERR", "FTL"};
 
-hashmap_t *loggers;
-pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+static hashmap_t *loggers;
+static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 
 size_t hash_string(void *e)
 	{
@@ -59,6 +59,17 @@ size_t hash_string(void *e)
 	while(*c!=0)
 		h=(h<<2)+*c++;
 	return h;
+	}
+
+static void logger_destroy(logger_t *l)
+	{
+	if(l->out!=NULL && l->out!=stdout && l->out!=stderr)
+		fclose(l->out);
+	if(l!=&_default)
+		{
+		free((char*)l->name);
+		free(l);
+		}
 	}
 
 void _fmt(logger_t *l, int nbr, int nb, int padding)
@@ -78,7 +89,7 @@ void _fmt(logger_t *l, int nbr, int nb, int padding)
 		}
 	}
 
-void _log_parse(logger_t *l, int level, char *fmt, time_t ct, struct tm *t, char *format, va_list ap)
+void _log_parse(logger_t *l, int level, const char *fmt, time_t ct, struct tm *t, char *format, va_list ap)
 	{
 	for(; *fmt; ++fmt)
 		{
@@ -326,15 +337,16 @@ void _l(logger_t *lorg, int level, char *format, ...)
 	va_start(ap, format);
 	_log_parse(lorg, level, l->fmt==NULL?DEFAULT_FMT:l->fmt, ct, &t, format, ap);
 	va_end(ap);
+	// TODO if autoflush ??
 	fflush(logger_out(l));
 	}
 
 void logger_init()
 	{
 	cfg_init();
-	loggers=hashmap_create(4, 0.66, &hash_string);
+	loggers=hashmap_create(4, 0.66, &hash_string, (void (*)(void*))&logger_destroy);
 	hashmap_add(loggers, &_default);
-	char *str=cfg_get_string("logger.default.format");
+	const char *str=cfg_get_string("logger.default.format");
 	if(str!=NULL)
 		_default.fmt=str;
 	if(cfg_has_key("logger.default.level"))
@@ -342,7 +354,7 @@ void logger_init()
 	if(cfg_has_key("logger._default.str_level"))
 		{
 		json_object *a=cfg_get("logger.default.str_level");
-		if(json_object_get_type(a)==json_type_array && json_object_array_length(a)<6)
+		if(json_object_get_type(a)==json_type_array && json_object_array_length(a)==5)
 			{
 			int i;
 			for(i=0; i<5; i++)
@@ -351,7 +363,7 @@ void logger_init()
 		else
 			error(NULL, "'logger.default.str_string' should be an array of 5 string");
 		}
-	char *out=cfg_get_string("logger.default.out");
+	const char *out=cfg_get_string("logger.default.out");
 	if(out!=NULL)
 		{
 		if(strcmp(out, "stdout")==0)
@@ -418,7 +430,7 @@ logger_t *get_logger(const char *name)
 		}
 	key[s+8]=0;
 	strcat(key, "out");
-	char *out=cfg_get_string(key);
+	const char *out=cfg_get_string(key);
 	l->out=NULL;
 	if(out!=NULL)
 		{
@@ -437,13 +449,19 @@ logger_t *get_logger(const char *name)
 		{
 		if(l->name[s]=='.')
 			{
-			l->name[s]=0;
-			l->parent=get_logger(l->name);
-			l->name[s]='.';
+			char *n=(char *)l->name;
+			n[s]=0;
+			l->parent=get_logger(n);
+			n[s]='.';
 			break;
 			}
 		}
 	free(key);
 
 	return l;
+	}
+
+void logger_deinit()
+	{
+	hashmap_destroy(loggers);
 	}
