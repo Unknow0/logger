@@ -339,6 +339,7 @@ void _l(logger_t *lorg, int level, char *format, ...)
 	va_end(ap);
 	// TODO if autoflush ??
 	fflush(logger_out(l));
+	sync();
 	}
 
 void logger_init()
