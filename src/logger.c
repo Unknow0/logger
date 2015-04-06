@@ -338,13 +338,11 @@ void _l(logger_t *lorg, int level, char *format, ...)
 	_log_parse(lorg, level, l->fmt==NULL?DEFAULT_FMT:l->fmt, ct, &t, format, ap);
 	va_end(ap);
 	// TODO if autoflush ??
-	fflush(logger_out(l));
-	sync();
+	fflush(logger_out(lorg));
 	}
 
 void logger_init()
 	{
-	cfg_init();
 	loggers=hashmap_create(4, 0.66, &hash_string, (void (*)(void*))&logger_destroy);
 	hashmap_add(loggers, &_default);
 	const char *str=cfg_get_string("logger.default.format");

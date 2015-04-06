@@ -52,7 +52,10 @@ typedef struct logger
 /** log to the logger l. */
 void _l(logger_t *l, int level, char *fmt, ...);
 
-/** initialize logger engine. */
+/**
+ * initialize logger engine. 
+ * require cfg_init first
+ */
 void logger_init();
 
 /** get or create a logger. if name==NULL you will get default logger */

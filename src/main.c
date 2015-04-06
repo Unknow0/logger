@@ -17,16 +17,20 @@
  ******************************************************************************/
 
 #include <logger.h>
+#include <cfg.h>
 
 int main()
 	{
+	size_t i=0;
+	cfg_init(NULL);
 	logger_init();
 
-	logger_t *l=get_logger("mserver");
-	_l(l, 0, "Test");
-
-	l=get_logger("mserver.lib");
-	_l(l, 3, "test");
+	logger_t *l=get_logger("test");
+	while(1)
+		{
+		_l(l, 0, "Test: %d", i++);
+		usleep(250);
+		}
 
 	return 0;
 	}
