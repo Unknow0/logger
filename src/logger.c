@@ -395,8 +395,13 @@ logger_t *get_logger(const char *name)
 		error(NULL, "You should call 'logger_init()' first!");
 		return &_default;
 		}
-	s=strlen(name)+prefix_len;
+	s=strlen(name)+prefix_len+2;
 	key=malloc(s+12);
+	if(key==NULL)
+		{
+		error(NULL, "Failed to allocate");
+		return &_default;
+		}
 	strcpy(key, logger_prefix);
 	strcat(key, ".");
 	strcat(key, name);
@@ -405,7 +410,6 @@ logger_t *get_logger(const char *name)
 	if(l!=NULL)
 		{
 		pthread_mutex_unlock(&mutex);
-		size_t h1=hash_string(&name), h2=hash_string(&l->name);
 		return l;
 		}
 	l=malloc(sizeof(logger_t));
@@ -414,12 +418,12 @@ logger_t *get_logger(const char *name)
 	pthread_mutex_unlock(&mutex);
 	strcat(key, ".format");
 	l->fmt=cfg_get_string(key);
-	key[s+8]=0;
+	key[s]=0;
 	strcat(key, "level");
 	l->level=LOG_LEVEL_INH;
 	if(cfg_has_key(key))
 		l->level=cfg_get_int(key);
-	key[s+8]=0;
+	key[s]=0;
 	strcat(key, "str_level");
 	memset(l->str_level, 0, sizeof(char*)*5);
 	if(cfg_has_key(key))
@@ -434,7 +438,7 @@ logger_t *get_logger(const char *name)
 		else
 			error(NULL, "'%s' should be an array of 5 string", key);
 		}
-	key[s+8]=0;
+	key[s]=0;
 	strcat(key, "out");
 	const char *out=cfg_get_string(key);
 	l->out=NULL;
@@ -451,14 +455,14 @@ logger_t *get_logger(const char *name)
 		}
 
 	l->parent=&_default;
-	for(;s>1;s--)
+	char *n=(char *)l->name+prefix_len;
+	for(;s>prefix_len;s--)
 		{
-		if(l->name[s]=='.')
+		if(l->name[s-prefix_len]=='.')
 			{
-			char *n=(char *)l->name;
-			n[s]=0;
+			n[s-prefix_len]=0;
 			l->parent=get_logger(n);
-			n[s]='.';
+			n[s-prefix_len]='.';
 			break;
 			}
 		}
