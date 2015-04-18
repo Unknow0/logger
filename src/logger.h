@@ -56,7 +56,7 @@ void _l(logger_t *l, int level, char *fmt, ...);
  * initialize logger engine. 
  * require cfg_init first
  */
-void logger_init();
+void logger_init(char *prefix);
 
 /** get or create a logger. if name==NULL you will get default logger */
 logger_t *get_logger(const char *name);

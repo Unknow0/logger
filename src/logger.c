@@ -52,6 +52,9 @@ static char *_default_str_level[5]={"DBG", "INF", "WRN", "ERR", "FTL"};
 static hashmap_t *loggers;
 static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 
+static const char *logger_prefix;
+static size_t prefix_len;
+
 size_t hash_string(void *e)
 	{
 	size_t h=0;
@@ -341,11 +344,14 @@ void _l(logger_t *lorg, int level, char *format, ...)
 	fflush(logger_out(lorg));
 	}
 
-void logger_init()
+void logger_init(char *prefix)
 	{
 	loggers=hashmap_create(4, 0.66, &hash_string, (void (*)(void*))&logger_destroy);
 	hashmap_add(loggers, &_default);
 	const char *str=cfg_get_string("logger.default.format");
+
+	logger_prefix=prefix?strdup(prefix):"logger";
+	prefix_len=strlen(logger_prefix);
 	if(str!=NULL)
 		_default.fmt=str;
 	if(cfg_has_key("logger.default.level"))
@@ -389,8 +395,13 @@ logger_t *get_logger(const char *name)
 		error(NULL, "You should call 'logger_init()' first!");
 		return &_default;
 		}
+	s=strlen(name)+prefix_len;
+	key=malloc(s+12);
+	strcpy(key, logger_prefix);
+	strcat(key, ".");
+	strcat(key, name);
 	pthread_mutex_lock(&mutex);
-	l=(logger_t *)hashmap_get(loggers, hash_string((void *)&name));
+	l=(logger_t *)hashmap_get(loggers, hash_string((void *)&key));
 	if(l!=NULL)
 		{
 		pthread_mutex_unlock(&mutex);
@@ -398,13 +409,9 @@ logger_t *get_logger(const char *name)
 		return l;
 		}
 	l=malloc(sizeof(logger_t));
-	l->name=strdup(name);
+	l->name=strdup(key);
 	hashmap_add(loggers, l);
 	pthread_mutex_unlock(&mutex);
-	s=strlen(name);
-	key=malloc(s+18);
-	strcpy(key, "logger.");
-	strcat(key, name);
 	strcat(key, ".format");
 	l->fmt=cfg_get_string(key);
 	key[s+8]=0;
