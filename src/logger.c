@@ -459,7 +459,7 @@ logger_t *get_logger(const char *name)
 	n=key+prefix_len+1;
 	for(;s>prefix_len;s--)
 		{
-		if(l->name[s-prefix_len]=='.')
+		if(n[s-prefix_len]=='.')
 			{
 			n[s-prefix_len]=0;
 			l->parent=get_logger(n);
