@@ -386,7 +386,7 @@ void logger_init(char *prefix)
 logger_t *get_logger(const char *name)
 	{
 	logger_t *l;
-	char *key;
+	char *key, *n;
 	int s;
 	if(name==NULL)
 		return &_default;
@@ -455,7 +455,8 @@ logger_t *get_logger(const char *name)
 		}
 
 	l->parent=&_default;
-	char *n=(char *)l->name+prefix_len;
+	key[s-1]=0;
+	n=key+prefix_len+1;
 	for(;s>prefix_len;s--)
 		{
 		if(l->name[s-prefix_len]=='.')

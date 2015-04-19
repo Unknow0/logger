@@ -8,7 +8,7 @@ include_HEADERS=src/logger.h
 EXTRA_PROGRAMS=test
 test_SOURCES=src/main.c
 test_LDADD=liblogger.la
-test_LDFLAGS=-pthread
+test_LDFLAGS=-pthread -lcfg -lcontainer
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA=logger.pc

@@ -23,14 +23,10 @@ int main()
 	{
 	size_t i=0;
 	cfg_init(NULL);
-	logger_init();
+	logger_init(NULL);
 
-	logger_t *l=get_logger("test");
-	while(1)
-		{
-		_l(l, 0, "Test: %d", i++);
-		usleep(250);
-		}
+	logger_t *l=get_logger("mserver.lib");
+	fatal(l, "Test: %d", i++);
 
 	return 0;
 	}
