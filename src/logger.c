@@ -57,10 +57,10 @@ static size_t prefix_len;
 
 size_t hash_string(void *e)
 	{
-	size_t h=0;
+	size_t h=7;
 	char *c=*((char **)e);
 	while(*c!=0)
-		h=(h<<2)+*c++;
+		h=h*17+*c++;
 	return h;
 	}
 
