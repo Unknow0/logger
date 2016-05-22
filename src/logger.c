@@ -27,7 +27,7 @@
 #include <pthread.h>
 
 #include <cfg.h>
-#include <container/hashmap.h>
+#include <utils/hashmap.h>
 
 #include "logger.h"
 

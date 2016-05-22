@@ -17,7 +17,7 @@ AC_PROG_INSTALL
 AC_CHECK_LIB([json-c], [json_object_new_object], [], [
 	AC_MSG_ERROR([install json-c: https://github.com/json-c/json-c])
 	])
-PKG_CHECK_MODULES([deps], [libcfg container])
+PKG_CHECK_MODULES([deps], [libcfg utils])
 
 # Checks for header files.
 AC_CHECK_HEADERS([langinfo.h stdlib.h string.h unistd.h])
