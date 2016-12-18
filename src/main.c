@@ -27,6 +27,12 @@ int main()
 
 	logger_t *l=get_logger("mserver.lib");
 	fatal(l, "Test: %d", i++);
+	l=get_logger("mserver.lib2");
+	fatal(l, "Test: %d", i++);
+	l=get_logger("mserver.lib3");
+	fatal(l, "Test: %d", i++);
+	l=get_logger("mserver.lib3");
+	fatal(l, "Test: %d", i++);
 
 	return 0;
 	}
