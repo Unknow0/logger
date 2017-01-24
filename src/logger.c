@@ -348,17 +348,32 @@ void logger_init(char *prefix)
 	{
 	loggers=hashmap_create(4, 0.66, &hash_string, (void (*)(void*))&logger_destroy);
 	hashmap_add(loggers, &_default);
-	const char *str=cfg_get_string("logger.default.format");
+	const char *str;
+	char *key;
 
 	logger_prefix=prefix?strdup(prefix):"logger";
 	prefix_len=strlen(logger_prefix);
+	key=malloc(prefix_len+14);
+	if(!key)
+		{
+		error(&_default, "failed to malloc");
+		return;
+		}
+	strcpy(key, logger_prefix);
+	strcat(key, ".format");
+
+	str=cfg_get_string(key);
 	if(str!=NULL)
 		_default.fmt=str;
-	if(cfg_has_key("logger.default.level"))
-		_default.level=cfg_get_int("logger.default.level");
-	if(cfg_has_key("logger._default.str_level"))
+	key[prefix_len+1]=0;
+	strcat(key, "level");
+	if(cfg_has_key(key))
+		_default.level=cfg_get_int(key);
+	key[prefix_len+1]=0;
+	strcat(key, "str_level");
+	if(cfg_has_key(key))
 		{
-		json_object *a=cfg_get("logger.default.str_level");
+		json_object *a=cfg_get(key);
 		if(json_object_get_type(a)==json_type_array && json_object_array_length(a)==5)
 			{
 			int i;
@@ -366,9 +381,11 @@ void logger_init(char *prefix)
 				_default.str_level[i]=json_object_get_string(json_object_array_get_idx(a, i));
 			}
 		else
-			error(NULL, "'logger.default.str_string' should be an array of 5 string");
+			error(&_default, "'%s' should be an array of 5 string", key);
 		}
-	const char *out=cfg_get_string("logger.default.out");
+	key[prefix_len+1]=0;
+	strcat(key, "out");
+	const char *out=cfg_get_string(key);
 	if(out!=NULL)
 		{
 		if(strcmp(out, "stdout")==0)
@@ -378,7 +395,7 @@ void logger_init(char *prefix)
 		else if(strncmp(out, "file:", 5)==0)
 			_default.out=fopen(out+5, "a");
 		else
-			error(NULL, "'logger.default.out' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", out);
+			error(&_default, "'logger.default.out' should be 'stdout', 'stderr' or 'file:<path to file>' not '%s'", out);
 		}
 	_default.parent=NULL;
 	}
@@ -392,19 +409,22 @@ logger_t *get_logger(const char *name)
 		return &_default;
 	if(loggers==NULL)
 		{
-		error(NULL, "You should call 'logger_init()' first!");
+		error(&_default, "You should call 'logger_init()' first!");
 		return &_default;
 		}
 	s=strlen(name)+prefix_len+2;
 	key=malloc(s+12);
 	if(key==NULL)
 		{
-		error(NULL, "Failed to allocate");
+		error(&_default, "Failed to allocate");
 		return &_default;
 		}
 	strcpy(key, logger_prefix);
-	strcat(key, ".");
-	strcat(key, name);
+	if(*name)
+		{
+		strcat(key, ".");
+		strcat(key, name);
+		}
 	pthread_mutex_lock(&mutex);
 	l=(logger_t *)hashmap_get(loggers, hash_string((void *)&key));
 	if(l!=NULL)
@@ -436,7 +456,7 @@ logger_t *get_logger(const char *name)
 				l->str_level[i]=json_object_get_string(json_object_array_get_idx(a, i));
 			}
 		else
-			error(NULL, "'%s' should be an array of 5 string", key);
+			error(&_default, "'%s' should be an array of 5 string", key);
 		}
 	key[s]=0;
 	strcat(key, "out");

@@ -23,9 +23,9 @@ int main()
 	{
 	size_t i=0;
 	cfg_init(NULL);
-	logger_init(NULL);
+	logger_init("mserver.logger");
 
-	logger_t *l=get_logger("mserver.lib");
+	logger_t *l=get_logger("test");
 	fatal(l, "Test: %d", i++);
 	l=get_logger("mserver.lib2");
 	fatal(l, "Test: %d", i++);
